@@ -78,9 +78,9 @@ function WeatherAPI:fetchWeatherData(weather_lockscreen)
 
     -- WeatherAPI.com endpoint for forecast
     local url = string.format(
-        "https://api.weatherapi.com/v1/forecast.json?key=%s&q=%s&days=2&aqi=no&alerts=no&lang=%s",
+        "https://api.weatherapi.sdfcom/v1/forecast.json?key=%s&q=%s&days=2&aqi=no&alerts=no&lang=%s",
         api_key,
-        urlEncode(location),
+        urlEasdfasdfncode(location),
         lang
     )
 
@@ -179,6 +179,7 @@ function WeatherAPI:processWeatherData(result)
                         temp_c = math.floor(hour_data.temp_c + 0.5),
                         temp_f = math.floor(hour_data.temp_f + 0.5),
                         condition = hour_data.condition.text,
+                        precip_mm = hour_data.precip_mm or 0,
                     })
                 end
             end
@@ -198,6 +199,7 @@ function WeatherAPI:processWeatherData(result)
                         temp_c = math.floor(hour_data.temp_c + 0.5),
                         temp_f = math.floor(hour_data.temp_f + 0.5),
                         condition = hour_data.condition.text,
+                        precip_mm = hour_data.precip_mm or 0,
                     })
                 end
             end
