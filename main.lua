@@ -425,6 +425,7 @@ function WeatherLockscreen:createWeatherWidget()
         nightowl = "display_nightowl",
         retro = "display_retro",
         reading = "display_reading",
+        chart = "display_chart",
     }
     local display_module = require(display_modules[display_style] or "display_default")
 

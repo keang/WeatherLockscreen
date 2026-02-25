@@ -219,6 +219,7 @@ function WeatherMenu:getDisplayStyleMenuItem(plugin_instance)
                 reading = _("Cover"),
                 retro = _("Retro Analog"),
                 nightowl = _("Night Owl"),
+                chart = _("Chart"),
             }
             return T(_("Display Style (%1)"), style_names[display_style])
         end,
@@ -229,6 +230,7 @@ function WeatherMenu:getDisplayStyleMenuItem(plugin_instance)
             self:getDisplayStyleOption(plugin_instance, "nightowl", _("Night Owl")),
             self:getDisplayStyleOption(plugin_instance, "retro", _("Retro Analog")),
             self:getDisplayStyleOption(plugin_instance, "reading", _("Cover")),
+            self:getDisplayStyleOption(plugin_instance, "chart", _("Chart")),
         },
     }
 end
