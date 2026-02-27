@@ -62,7 +62,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
                   + (n_hours - 1) * base_horizontal_spacing
     local max_scale = screen_width / row_w
 
-    local function buildContent(scale)
+    local function buildContent(scale, measure_only)
         local hourly_icon_size   = math.floor(base_hourly_icon_size   * scale)
         local label_font_size    = math.floor(base_label_font_size    * scale)
         local hour_font_size     = math.floor(base_hour_font_size     * scale)
@@ -81,7 +81,8 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
             })
             local row = DisplayHelper:buildHourlyChartRow(
                 hourly_data, FORECAST_HOURS,
-                hourly_icon_size, hour_font_size, horizontal_spacing, bar_height)
+                hourly_icon_size, hour_font_size, horizontal_spacing, bar_height,
+                measure_only)
             if row then
                 table.insert(widgets, row)
             end
@@ -98,7 +99,9 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
     end
 
     local available_height = screen_height - header_height
-    local weather_group    = DisplayHelper:scaleToFit(buildContent, available_height, nil, max_scale)
+    local weather_group    = DisplayHelper:scaleToFit(
+        buildContent, available_height, nil, max_scale,
+        function(s) return buildContent(s, true) end)
 
     local main_content = CenterContainer:new {
         dimen = Screen:getSize(),

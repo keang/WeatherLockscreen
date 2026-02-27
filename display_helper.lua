@@ -11,6 +11,7 @@ local Device = require("device")
 local Screen = Device.screen
 local DataStorage = require("datastorage")
 local util = require("util")
+local Widget = require("ui/widget/widget")
 local ImageWidget = require("ui/widget/imagewidget")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
@@ -26,6 +27,13 @@ local TextWidget = require("ui/widget/textwidget")
 local Font = require("ui/font")
 local logger = require("logger")
 local WeatherUtils = require("weather_utils")
+
+-- Defined once at module level so each call to buildHourlyChartRow reuses the same class.
+local BarWidget = Widget:extend {}
+function BarWidget:getSize() return { w = self.width, h = self.height } end
+function BarWidget:paintTo(bb, x, y)
+    bb:paintRect(x, y, self.width, self.height, self.color)
+end
 
 local DisplayHelper = {}
 
@@ -104,12 +112,17 @@ end
 --- @param available_height number  The pixel height the content should fit into.
 --- @param default_fill number|nil  Default fill percentage when override is off (default 90).
 --- @param max_scale number|nil  Optional upper bound on the scale factor (e.g. derived from available width).
---- @return widget, number  The (possibly rebuilt) widget and the final scale factor.
-function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max_scale)
+--- @param measureFunc function|nil  Cheap alternative to buildFunc used only for height measurement.
+---   When provided, images/heavy resources are skipped during sizing; buildFunc is then called exactly once
+---   at the final scale. When nil, falls back to buildFunc (original two-pass behaviour).
+--- @return widget, number  The final widget and the scale factor used.
+function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max_scale, measureFunc)
     default_fill = default_fill or 90
 
-    local widget = buildFunc(1.0)
-    local content_height = widget:getSize().h
+    -- Use the cheap measureFunc when available so images are not loaded during the probe pass.
+    local sizing_func = measureFunc or buildFunc
+    local probe = sizing_func(1.0)
+    local content_height = probe:getSize().h
 
     local fill_percent = G_reader_settings:readSetting("weather_override_scaling")
         and tonumber(G_reader_settings:readSetting("weather_fill_percent"))
@@ -132,8 +145,13 @@ function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max
         scale = max_scale
     end
 
-    if scale ~= 1.0 then
+    -- Build the real widget exactly once at the final scale.
+    -- When no measureFunc was provided and scale is already 1.0, the probe IS the real widget.
+    local widget
+    if measureFunc or scale ~= 1.0 then
         widget = buildFunc(scale)
+    else
+        widget = probe
     end
 
     return widget, scale
@@ -145,8 +163,9 @@ end
 --- @param icon_size number  Pixel size for the weather icons.
 --- @param font_size number  Font size for the hour label and temperature text.
 --- @param spacing number  Horizontal spacing between columns.
+--- @param measure_only boolean|nil  When true, substitute VerticalSpan placeholders for ImageWidgets.
 --- @return widget|nil  HorizontalGroup widget, or nil if no hours matched.
-function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font_size, spacing)
+function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font_size, spacing, measure_only)
     if not hourly_data or #hourly_data == 0 then return nil end
 
     -- Build a fast lookup set from target_hours
@@ -166,13 +185,17 @@ function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font
                 face = Font:getFace("cfont", font_size),
             })
             if hour_data.icon_path then
-                table.insert(col, ImageWidget:new {
-                    file = hour_data.icon_path,
-                    width = icon_size,
-                    height = icon_size,
-                    alpha = true,
-                    original_in_nightmode = false,
-                })
+                if measure_only then
+                    table.insert(col, VerticalSpan:new { width = icon_size })
+                else
+                    table.insert(col, ImageWidget:new {
+                        file = hour_data.icon_path,
+                        width = icon_size,
+                        height = icon_size,
+                        alpha = true,
+                        original_in_nightmode = false,
+                    })
+                end
             end
             table.insert(col, TextWidget:new {
                 text = WeatherUtils:getHourlyTemp(hour_data, false),
@@ -199,17 +222,10 @@ end
 --- @param font_size number  Font size for hour and temperature labels.
 --- @param spacing number  Horizontal spacing between columns.
 --- @param bar_max_h number  Maximum bar height in pixels (tallest bar = this height).
+--- @param measure_only boolean|nil  When true, substitute VerticalSpan placeholders for ImageWidgets.
 --- @return widget|nil  HorizontalGroup widget, or nil if no hours matched.
-function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size, font_size, spacing, bar_max_h)
+function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size, font_size, spacing, bar_max_h, measure_only)
     if not hourly_data or #hourly_data == 0 then return nil end
-
-    local Widget = require("ui/widget/widget")
-    -- Minimal widget that paints a solid filled rectangle
-    local BarWidget = Widget:extend {}
-    function BarWidget:getSize() return { w = self.width, h = self.height } end
-    function BarWidget:paintTo(bb, x, y)
-        bb:paintRect(x, y, self.width, self.height, self.color)
-    end
 
     local use_celsius = WeatherUtils:getTempScale() == "C"
     local target_set = {}
@@ -248,8 +264,8 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
 
             local col = {}
 
-            -- Icon
-            if hour_data.icon_path then
+            -- Icon (or same-size placeholder during measurement to avoid image decoding)
+            if hour_data.icon_path and not measure_only then
                 table.insert(col, CenterContainer:new {
                     dimen = { w = icon_size, h = icon_size },
                     ImageWidget:new {
