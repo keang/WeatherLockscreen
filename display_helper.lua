@@ -288,7 +288,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                 unpack(bar_group),
             })
 
-            table.insert(col, VerticalSpan:new { width = font_size / 2 })
+            table.insert(col, VerticalSpan:new { width = math.floor(font_size / 2) })
             -- Hour label
             table.insert(col, CenterContainer:new {
                 dimen = { w = icon_size, h = font_size + 4 },
