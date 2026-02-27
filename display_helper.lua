@@ -322,6 +322,28 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
     return HorizontalGroup:new { align = "center", unpack(row) }
 end
 
+--- Recursively walk a widget tree and call :free() on every ImageWidget.
+--- KOReader's WidgetContainer:onCloseWidget() only iterates numeric children (self[n]),
+--- so ScreenSaverWidget — which stores its child as self.widget — never propagates the
+--- CloseWidget event to nested ImageWidgets, leaving their blitbuffers allocated.
+--- Call this explicitly before UIManager:close() to avoid the resulting crash on reuse.
+function DisplayHelper:freeImageWidgets(widget)
+    if not widget or type(widget) ~= "table" then return end
+    -- ImageWidget is identified by having both a free() method and a 'file' field
+    if type(widget.free) == "function" and widget.file then
+        widget:free()
+        return
+    end
+    -- Descend into named .widget child (ScreenSaverWidget, some container types)
+    if type(widget.widget) == "table" then
+        self:freeImageWidgets(widget.widget)
+    end
+    -- Descend into indexed children (VerticalGroup, HorizontalGroup, CenterContainer, etc.)
+    for i = 1, #widget do
+        self:freeImageWidgets(widget[i])
+    end
+end
+
 function DisplayHelper:createLoadingWidget()
     logger.dbg("WeatherLockscreen: Creating loading icon")
 

@@ -245,8 +245,12 @@ function WeatherLockscreen:patchScreensaver()
             -- Schedule periodic refresh when screen locks
             plugin_instance:schedulePeriodicRefresh()
 
-            -- Close any existing screensaver widget
+            -- Close any existing screensaver widget.
+            -- Explicitly free ImageWidget blitbuffers first: ScreenSaverWidget stores its
+            -- child as .widget (not self[1]), so KOReader's onCloseWidget propagation never
+            -- reaches nested ImageWidgets and their FFI memory would otherwise leak.
             if screensaver_instance.screensaver_widget then
+                DisplayHelper:freeImageWidgets(screensaver_instance.screensaver_widget)
                 UIManager:close(screensaver_instance.screensaver_widget)
                 screensaver_instance.screensaver_widget = nil
             end
