@@ -45,10 +45,10 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
     local base_label_font_size    = 30
     local base_hour_font_size     = 24
     local base_bar_height         = 240
-    local base_vertical_spacing   = 30
+    local base_vertical_spacing   = 60
     local base_horizontal_spacing = 20
 
-    local header_font_size = Screen:scaleBySize(20)
+    local header_font_size = Screen:scaleBySize(10)
     local header_margin    = 10
 
     local header_group = DisplayHelper:createHeaderWidgets(
