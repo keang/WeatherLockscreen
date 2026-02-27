@@ -19,9 +19,20 @@ local DisplayHelper = require("display_helper")
 
 local ChartDisplay = {}
 
--- Match all possible hours so every entry in hourly_data is shown
-local ALL_HOURS = {}
-for i = 0, 23 do ALL_HOURS[#ALL_HOURS + 1] = i end
+-- Show only these hours in the chart
+local FORECAST_HOURS = {6, 9, 12, 15, 18, 21}
+
+local function todayLabel()
+    local day    = os.date("%A")
+    local d      = tonumber(os.date("%d"))
+    local month  = os.date("%b")
+    local suffix
+    if     d == 1 or d == 21 or d == 31 then suffix = "st"
+    elseif d == 2 or d == 22             then suffix = "nd"
+    elseif d == 3 or d == 23             then suffix = "rd"
+    else                                      suffix = "th" end
+    return string.format("%s, %d%s %s", day, d, suffix, month)
+end
 
 function ChartDisplay:create(weather_lockscreen, weather_data)
     local screen_width  = Screen:getWidth()
@@ -30,7 +41,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
     local base_hourly_icon_size   = 120
     local base_label_font_size    = 30
     local base_hour_font_size     = 24
-    local base_bar_height         = 80
+    local base_bar_height         = 240
     local base_vertical_spacing   = 30
     local base_horizontal_spacing = 20
 
@@ -72,7 +83,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
                 bold = true,
             })
             local row = DisplayHelper:buildHourlyChartRow(
-                hourly_data, ALL_HOURS,
+                hourly_data, FORECAST_HOURS,
                 hourly_icon_size, hour_font_size, horizontal_spacing, bar_height)
             if row then
                 table.insert(widgets, row)
@@ -80,7 +91,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
             table.insert(widgets, VerticalSpan:new { width = vertical_spacing })
         end
 
-        addRow(weather_data.hourly_today_all,    _("Today"))
+        addRow(weather_data.hourly_today_all,    todayLabel())
         addRow(weather_data.hourly_tomorrow_all, _("Tomorrow"))
 
         return VerticalGroup:new {
