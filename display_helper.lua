@@ -215,20 +215,21 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
     local target_set = {}
     for _, h in ipairs(target_hours) do target_set[h] = true end
 
-    -- Find min/max temperature among target hours
-    local min_temp, max_temp = math.huge, -math.huge
-    for _, h in ipairs(hourly_data) do
-        if target_set[h.hour_num] then
-            local t = use_celsius and h.temp_c or h.temp_f
-            if t < min_temp then min_temp = t end
-            if t > max_temp then max_temp = t end
-        end
+    -- Fixed temperature scale: 0°C–45°C (converted to °F when needed)
+    local range_min, range_max
+    if use_celsius then
+        range_min, range_max = 0, 45
+    else
+        range_min, range_max = 32, 113
     end
-    if min_temp == math.huge then return nil end
+    local range = range_max - range_min
 
-    local range_min = min_temp - 5
-    local range_max = max_temp + 5
-    local range     = range_max - range_min
+    -- Ensure at least one target hour is present
+    local any_match = false
+    for _, h in ipairs(hourly_data) do
+        if target_set[h.hour_num] then any_match = true; break end
+    end
+    if not any_match then return nil end
     local bar_w     = math.max(4, math.floor(icon_size * 0.45))
     local face      = Font:getFace("cfont", font_size)
 
@@ -239,10 +240,11 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                 table.insert(row, HorizontalSpan:new { width = spacing })
             end
 
-            local t     = use_celsius and hour_data.temp_c or hour_data.temp_f
-            local frac  = math.max(0, math.min(1, (t - range_min) / range))
-            local bar_h = math.max(2, math.floor(frac * bar_max_h))
-            local empty_h = bar_max_h - bar_h
+            local t           = use_celsius and hour_data.temp_c or hour_data.temp_f
+            local out_of_range = t < range_min or t > range_max
+            local frac        = math.max(0, math.min(1, (t - range_min) / range))
+            local bar_h       = math.max(2, math.floor(frac * bar_max_h))
+            local empty_h     = bar_max_h - bar_h
 
             local col = {}
 
@@ -278,7 +280,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                 dimen = { w = icon_size, h = bar_h },
                 BarWidget:new {
                     width = bar_w, height = bar_h,
-                    color = Blitbuffer.COLOR_DARK_GRAY,
+                    color = out_of_range and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
                 },
             })
             table.insert(col, VerticalGroup:new {

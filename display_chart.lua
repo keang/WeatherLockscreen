@@ -22,10 +22,10 @@ local ChartDisplay = {}
 -- Show only these hours in the chart
 local FORECAST_HOURS = {6, 9, 12, 15, 18, 21}
 
-local function todayLabel()
-    local day    = os.date("%A")
-    local d      = tonumber(os.date("%d"))
-    local month  = os.date("%b")
+local function formatDayLabel(t)
+    local day    = os.date("%A", t)
+    local d      = tonumber(os.date("%d", t))
+    local month  = os.date("%b", t)
     local suffix
     if     d == 1 or d == 21 or d == 31 then suffix = "st"
     elseif d == 2 or d == 22             then suffix = "nd"
@@ -33,6 +33,9 @@ local function todayLabel()
     else                                      suffix = "th" end
     return string.format("%s, %d%s %s", day, d, suffix, month)
 end
+
+local function todayLabel()    return formatDayLabel(os.time()) end
+local function tomorrowLabel() return formatDayLabel(os.time() + 86400) end
 
 function ChartDisplay:create(weather_lockscreen, weather_data)
     local screen_width  = Screen:getWidth()
@@ -53,17 +56,11 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
         Blitbuffer.COLOR_DARK_GRAY, weather_data.is_cached)
     local header_height = header_group:getSize().h
 
-    -- Count actual hourly entries to derive width-based scale cap
-    local n_today    = weather_data.hourly_today_all    and #weather_data.hourly_today_all    or 0
-    local n_tomorrow = weather_data.hourly_tomorrow_all and #weather_data.hourly_tomorrow_all or 0
-    local n_hours    = math.max(n_today, n_tomorrow)
-
-    local max_scale
-    if n_hours > 0 then
-        local row_w = n_hours * base_hourly_icon_size
-                    + (n_hours - 1) * base_horizontal_spacing
-        max_scale = math.min(1.0, screen_width / row_w)
-    end
+    -- Width cap is based on the number of displayed columns (FORECAST_HOURS), not total hourly entries
+    local n_hours = #FORECAST_HOURS
+    local row_w   = n_hours * base_hourly_icon_size
+                  + (n_hours - 1) * base_horizontal_spacing
+    local max_scale = screen_width / row_w
 
     local function buildContent(scale)
         local hourly_icon_size   = math.floor(base_hourly_icon_size   * scale)
@@ -92,7 +89,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
         end
 
         addRow(weather_data.hourly_today_all,    todayLabel())
-        addRow(weather_data.hourly_tomorrow_all, _("Tomorrow"))
+        addRow(weather_data.hourly_tomorrow_all, tomorrowLabel())
 
         return VerticalGroup:new {
             align = "center",
