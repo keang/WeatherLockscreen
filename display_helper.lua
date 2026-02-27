@@ -27,6 +27,7 @@ local TextWidget = require("ui/widget/textwidget")
 local Font = require("ui/font")
 local logger = require("logger")
 local WeatherUtils = require("weather_utils")
+local WeatherIconMap = require("weather_icon_map")
 
 -- Defined once at module level so each call to buildHourlyChartRow reuses the same class.
 local BarWidget = Widget:extend {}
@@ -112,16 +113,11 @@ end
 --- @param available_height number  The pixel height the content should fit into.
 --- @param default_fill number|nil  Default fill percentage when override is off (default 90).
 --- @param max_scale number|nil  Optional upper bound on the scale factor (e.g. derived from available width).
---- @param measureFunc function|nil  Cheap alternative to buildFunc used only for height measurement.
----   When provided, images/heavy resources are skipped during sizing; buildFunc is then called exactly once
----   at the final scale. When nil, falls back to buildFunc (original two-pass behaviour).
 --- @return widget, number  The final widget and the scale factor used.
-function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max_scale, measureFunc)
+function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max_scale)
     default_fill = default_fill or 90
 
-    -- Use the cheap measureFunc when available so images are not loaded during the probe pass.
-    local sizing_func = measureFunc or buildFunc
-    local probe = sizing_func(1.0)
+    local probe = buildFunc(1.0)
     local content_height = probe:getSize().h
 
     local fill_percent = G_reader_settings:readSetting("weather_override_scaling")
@@ -145,10 +141,8 @@ function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max
         scale = max_scale
     end
 
-    -- Build the real widget exactly once at the final scale.
-    -- When no measureFunc was provided and scale is already 1.0, the probe IS the real widget.
     local widget
-    if measureFunc or scale ~= 1.0 then
+    if scale ~= 1.0 then
         widget = buildFunc(scale)
     else
         widget = probe
@@ -157,15 +151,33 @@ function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max
     return widget, scale
 end
 
+--- Build a weather icon TextWidget (Weather Icons font) for the given hour entry.
+--- Falls back to a VerticalSpan placeholder if the font is unavailable.
+--- @param icon_code string|nil
+--- @param is_day boolean|nil
+--- @param icon_size number  Pixel size used for both width and height.
+--- @param text_color table|nil  Blitbuffer colour; defaults to COLOR_BLACK.
+local function buildIconWidget(icon_code, is_day, icon_size, text_color)
+    local font_name = "weathericons-regular-webfont"
+    local face = Font:getFace(font_name, icon_size)
+    if face and icon_code then
+        return TextWidget:new {
+            text    = WeatherIconMap.getChar(icon_code, is_day ~= false),
+            face    = face,
+            fgcolor = text_color or Blitbuffer.COLOR_BLACK,
+        }
+    end
+    return VerticalSpan:new { width = icon_size }
+end
+
 --- Build a horizontal row of hourly forecast columns (hour label, icon, temperature).
---- @param hourly_data table  Array of hour entries (each with hour, hour_num, icon_path, temp_c, temp_f).
+--- @param hourly_data table  Array of hour entries (each with hour, hour_num, icon_code, is_day, temp_c, temp_f).
 --- @param target_hours table  Array of hour numbers to include (e.g. {6, 12, 18}).
 --- @param icon_size number  Pixel size for the weather icons.
 --- @param font_size number  Font size for the hour label and temperature text.
 --- @param spacing number  Horizontal spacing between columns.
---- @param measure_only boolean|nil  When true, substitute VerticalSpan placeholders for ImageWidgets.
 --- @return widget|nil  HorizontalGroup widget, or nil if no hours matched.
-function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font_size, spacing, measure_only)
+function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font_size, spacing)
     if not hourly_data or #hourly_data == 0 then return nil end
 
     -- Build a fast lookup set from target_hours
@@ -184,19 +196,7 @@ function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font
                 text = hour_data.hour,
                 face = Font:getFace("cfont", font_size),
             })
-            if hour_data.icon_path then
-                if measure_only then
-                    table.insert(col, VerticalSpan:new { width = icon_size })
-                else
-                    table.insert(col, ImageWidget:new {
-                        file = hour_data.icon_path,
-                        width = icon_size,
-                        height = icon_size,
-                        alpha = true,
-                        original_in_nightmode = false,
-                    })
-                end
-            end
+            table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
             table.insert(col, TextWidget:new {
                 text = WeatherUtils:getHourlyTemp(hour_data, false),
                 face = Font:getFace("cfont", font_size),
@@ -222,9 +222,8 @@ end
 --- @param font_size number  Font size for hour and temperature labels.
 --- @param spacing number  Horizontal spacing between columns.
 --- @param bar_max_h number  Maximum bar height in pixels (tallest bar = this height).
---- @param measure_only boolean|nil  When true, substitute VerticalSpan placeholders for ImageWidgets.
 --- @return widget|nil  HorizontalGroup widget, or nil if no hours matched.
-function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size, font_size, spacing, bar_max_h, measure_only)
+function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size, font_size, spacing, bar_max_h)
     if not hourly_data or #hourly_data == 0 then return nil end
 
     local use_celsius = WeatherUtils:getTempScale() == "C"
@@ -264,19 +263,11 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
 
             local col = {}
 
-            -- Icon (or same-size placeholder during measurement to avoid image decoding)
-            if hour_data.icon_path and not measure_only then
-                table.insert(col, CenterContainer:new {
-                    dimen = { w = icon_size, h = icon_size },
-                    ImageWidget:new {
-                        file = hour_data.icon_path,
-                        width = icon_size, height = icon_size,
-                        alpha = true, original_in_nightmode = false,
-                    },
-                })
-            else
-                table.insert(col, VerticalSpan:new { width = icon_size })
-            end
+            -- Icon via Weather Icons font (no image I/O, no blitbuffer lifetime concerns)
+            table.insert(col, CenterContainer:new {
+                dimen = { w = icon_size, h = icon_size },
+                buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size),
+            })
 
             -- Temperature
             table.insert(col, CenterContainer:new {
@@ -320,28 +311,6 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
 
     if #row == 0 then return nil end
     return HorizontalGroup:new { align = "center", unpack(row) }
-end
-
---- Recursively walk a widget tree and call :free() on every ImageWidget.
---- KOReader's WidgetContainer:onCloseWidget() only iterates numeric children (self[n]),
---- so ScreenSaverWidget — which stores its child as self.widget — never propagates the
---- CloseWidget event to nested ImageWidgets, leaving their blitbuffers allocated.
---- Call this explicitly before UIManager:close() to avoid the resulting crash on reuse.
-function DisplayHelper:freeImageWidgets(widget)
-    if not widget or type(widget) ~= "table" then return end
-    -- ImageWidget is identified by having both a free() method and a 'file' field
-    if type(widget.free) == "function" and widget.file then
-        widget:free()
-        return
-    end
-    -- Descend into named .widget child (ScreenSaverWidget, some container types)
-    if type(widget.widget) == "table" then
-        self:freeImageWidgets(widget.widget)
-    end
-    -- Descend into indexed children (VerticalGroup, HorizontalGroup, CenterContainer, etc.)
-    for i = 1, #widget do
-        self:freeImageWidgets(widget[i])
-    end
 end
 
 function DisplayHelper:createLoadingWidget()

@@ -131,9 +131,12 @@ function WeatherAPI:processWeatherData(result)
     -- Process current weather
     local condition = result.current.condition.text
     local icon_path = self:getIconPath(result.current.condition.icon)
+    local cur_icon_code, cur_is_day = self:getIconCode(result.current.condition.icon)
 
     local current_data = {
         icon_path = icon_path,
+        icon_code = cur_icon_code,
+        is_day    = cur_is_day,
         temp_c = math.floor(result.current.temp_c + 0.5),
         temp_f = math.floor(result.current.temp_f + 0.5),
         condition = condition,
@@ -170,12 +173,15 @@ function WeatherAPI:processWeatherData(result)
                 local hour = tonumber(hour_data.time:match("(%d+):00$"))
                 if hour then
                     local h_icon_path = self:getIconPath(hour_data.condition.icon)
+                    local h_icon_code, h_is_day = self:getIconCode(hour_data.condition.icon)
 
                     -- Add all hours
                     table.insert(hourly_today, {
                         hour = WeatherUtils:formatHourLabel(hour, twelve_hour_clock),
                         hour_num = hour,
                         icon_path = h_icon_path,
+                        icon_code = h_icon_code,
+                        is_day    = h_is_day,
                         temp_c = math.floor(hour_data.temp_c + 0.5),
                         temp_f = math.floor(hour_data.temp_f + 0.5),
                         condition = hour_data.condition.text,
@@ -191,11 +197,14 @@ function WeatherAPI:processWeatherData(result)
                 local hour = tonumber(hour_data.time:match("(%d+):00$"))
                 if hour then
                     local h_icon_path = self:getIconPath(hour_data.condition.icon)
+                    local h_icon_code, h_is_day = self:getIconCode(hour_data.condition.icon)
 
                     table.insert(hourly_tomorrow, {
                         hour = WeatherUtils:formatHourLabel(hour, twelve_hour_clock),
                         hour_num = hour,
                         icon_path = h_icon_path,
+                        icon_code = h_icon_code,
+                        is_day    = h_is_day,
                         temp_c = math.floor(hour_data.temp_c + 0.5),
                         temp_f = math.floor(hour_data.temp_f + 0.5),
                         condition = hour_data.condition.text,
@@ -233,9 +242,13 @@ function WeatherAPI:processWeatherData(result)
                     end
                 end
 
+                local fd_icon_url = day_data.day.condition.icon
+                local fd_icon_code, fd_is_day = self:getIconCode(fd_icon_url)
                 table.insert(forecast_days, {
                     day_name = day_name,
-                    icon_path = self:getIconPath(day_data.day.condition.icon),
+                    icon_path = self:getIconPath(fd_icon_url),
+                    icon_code = fd_icon_code,
+                    is_day    = fd_is_day,
                     high_c = math.floor(day_data.day.maxtemp_c + 0.5),
                     high_f = math.floor(day_data.day.maxtemp_f + 0.5),
                     low_c = math.floor(day_data.day.mintemp_c + 0.5),
@@ -301,6 +314,14 @@ function WeatherAPI:searchLocations(query, api_key)
         logger.warn("WeatherLockscreen: Location search failed, HTTP code:", code)
         return nil, _("API error") .. " (" .. code .. ")"
     end
+end
+
+function WeatherAPI:getIconCode(icon_url)
+    if not icon_url then return nil, true end
+    local day_night, filename = icon_url:match("/([^/]+)/([^/]+)$")
+    local code = filename and filename:match("^(%d+)%.") or nil
+    local is_day = day_night ~= "night"
+    return code, is_day
 end
 
 function WeatherAPI:getIconPath(icon_url_from_api)

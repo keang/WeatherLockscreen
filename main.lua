@@ -109,6 +109,7 @@ function WeatherLockscreen:init()
     self:initDefaultSettings()
     self:onDispatcherRegisterActions()
     WeatherUtils:installIcons()
+    WeatherUtils:installWeatherFont()
     self.ui.menu:registerToMainMenu(self)
     self:patchDofile()
     self:patchScreensaver()
@@ -246,11 +247,7 @@ function WeatherLockscreen:patchScreensaver()
             plugin_instance:schedulePeriodicRefresh()
 
             -- Close any existing screensaver widget.
-            -- Explicitly free ImageWidget blitbuffers first: ScreenSaverWidget stores its
-            -- child as .widget (not self[1]), so KOReader's onCloseWidget propagation never
-            -- reaches nested ImageWidgets and their FFI memory would otherwise leak.
             if screensaver_instance.screensaver_widget then
-                DisplayHelper:freeImageWidgets(screensaver_instance.screensaver_widget)
                 UIManager:close(screensaver_instance.screensaver_widget)
                 screensaver_instance.screensaver_widget = nil
             end

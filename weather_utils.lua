@@ -156,6 +156,40 @@ function WeatherUtils:getMinDelayBetweenUpdates()
     return G_reader_settings:readSetting("weather_min_update_delay") or 1800 -- Default: 30 minutes
 end
 
+function WeatherUtils:installWeatherFont()
+    local font_name = "weathericons-regular-webfont"
+    local plugin_dir = self:getPluginDir()
+    if not plugin_dir then
+        logger.warn("WeatherLockscreen: plugin dir unknown; cannot install weather font")
+        return false
+    end
+
+    local src = plugin_dir .. "/fonts/" .. font_name .. ".ttf"
+    if not util.fileExists(src) then
+        logger.warn("WeatherLockscreen: bundled font missing:", src)
+        return false
+    end
+
+    -- Register the font path directly so it is available immediately (no restart needed).
+    local ok, Font = pcall(require, "ui/font")
+    if ok and Font then
+        if not Font.fonts then Font.fonts = {} end
+        Font.fonts[font_name] = src
+        logger.dbg("WeatherLockscreen: Registered weather font from", src)
+    end
+
+    -- Also copy to data/fonts so it persists across KOReader restarts.
+    local dst_dir = DataStorage:getDataDir() .. "/fonts/"
+    local dst = dst_dir .. font_name .. ".ttf"
+    if not util.fileExists(dst) then
+        util.makePath(dst_dir)
+        ffiUtil.copyFile(src, dst)
+        logger.dbg("WeatherLockscreen: Copied weather font to", dst)
+    end
+
+    return true
+end
+
 -- This function was inspired by Project: Title. Thanks!
 function WeatherUtils:installIcons()
     -- Icon groups: { dest_dir, bundled_subdir, file_list }

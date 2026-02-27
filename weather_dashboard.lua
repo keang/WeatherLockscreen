@@ -88,10 +88,7 @@ function WeatherDashboard:showWidget(weather_lockscreen)
     logger.info("WeatherLockscreen: Showing dashboard widget")
 
     -- Close existing widget if any.
-    -- Explicitly free ImageWidget blitbuffers first to avoid stale FFI memory on reuse.
     if weather_lockscreen.dashboard_widget then
-        local DisplayHelper = require("display_helper")
-        DisplayHelper:freeImageWidgets(weather_lockscreen.dashboard_widget)
         UIManager:close(weather_lockscreen.dashboard_widget)
         weather_lockscreen.dashboard_widget = nil
         logger.dbg("WeatherLockscreen: Closed existing dashboard widget")
