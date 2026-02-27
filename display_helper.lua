@@ -13,6 +13,7 @@ local DataStorage = require("datastorage")
 local util = require("util")
 local ImageWidget = require("ui/widget/imagewidget")
 local VerticalGroup = require("ui/widget/verticalgroup")
+local VerticalSpan = require("ui/widget/verticalspan")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local CenterContainer = require("ui/widget/container/centercontainer")
@@ -102,8 +103,9 @@ end
 --- @param buildFunc function(scale_factor) → widget  Builder that creates the content widget at the given scale.
 --- @param available_height number  The pixel height the content should fit into.
 --- @param default_fill number|nil  Default fill percentage when override is off (default 90).
+--- @param max_scale number|nil  Optional upper bound on the scale factor (e.g. derived from available width).
 --- @return widget, number  The (possibly rebuilt) widget and the final scale factor.
-function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill)
+function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill, max_scale)
     default_fill = default_fill or 90
 
     local widget = buildFunc(1.0)
@@ -121,9 +123,16 @@ function DisplayHelper:scaleToFit(buildFunc, available_height, default_fill)
     local scale = 1.0
     if content_height > max_target then
         scale = max_target / content_height
-        widget = buildFunc(scale)
     elseif content_height < min_target then
         scale = min_target / content_height
+    end
+
+    -- Width constraint takes priority: cap scale so content never exceeds available width
+    if max_scale and scale > max_scale then
+        scale = max_scale
+    end
+
+    if scale ~= 1.0 then
         widget = buildFunc(scale)
     end
 
@@ -168,6 +177,119 @@ function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font
             table.insert(col, TextWidget:new {
                 text = WeatherUtils:getHourlyTemp(hour_data, false),
                 face = Font:getFace("cfont", font_size),
+            })
+
+            table.insert(row, VerticalGroup:new {
+                align = "center",
+                unpack(col),
+            })
+        end
+    end
+
+    if #row == 0 then return nil end
+    return HorizontalGroup:new { align = "center", unpack(row) }
+end
+
+--- Build a horizontal row of hourly forecast columns with a temperature bar chart.
+--- Each column shows: icon (top), temperature, proportional bar, hour label (bottom).
+--- Bar height is proportional to temperature within (min_temp - 5) to (max_temp + 5).
+--- @param hourly_data table  Array of hour entries.
+--- @param target_hours table  Array of hour numbers to include (e.g. {6, 12, 18}).
+--- @param icon_size number  Pixel size for the weather icons.
+--- @param font_size number  Font size for hour and temperature labels.
+--- @param spacing number  Horizontal spacing between columns.
+--- @param bar_max_h number  Maximum bar height in pixels (tallest bar = this height).
+--- @return widget|nil  HorizontalGroup widget, or nil if no hours matched.
+function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size, font_size, spacing, bar_max_h)
+    if not hourly_data or #hourly_data == 0 then return nil end
+
+    local Widget = require("ui/widget/widget")
+    -- Minimal widget that paints a solid filled rectangle
+    local BarWidget = Widget:extend {}
+    function BarWidget:getSize() return { w = self.width, h = self.height } end
+    function BarWidget:paintTo(bb, x, y)
+        bb:paintRect(x, y, self.width, self.height, self.color)
+    end
+
+    local use_celsius = WeatherUtils:getTempScale() == "C"
+    local target_set = {}
+    for _, h in ipairs(target_hours) do target_set[h] = true end
+
+    -- Find min/max temperature among target hours
+    local min_temp, max_temp = math.huge, -math.huge
+    for _, h in ipairs(hourly_data) do
+        if target_set[h.hour_num] then
+            local t = use_celsius and h.temp_c or h.temp_f
+            if t < min_temp then min_temp = t end
+            if t > max_temp then max_temp = t end
+        end
+    end
+    if min_temp == math.huge then return nil end
+
+    local range_min = min_temp - 5
+    local range_max = max_temp + 5
+    local range     = range_max - range_min
+    local bar_w     = math.max(4, math.floor(icon_size * 0.45))
+    local face      = Font:getFace("cfont", font_size)
+
+    local row = {}
+    for _, hour_data in ipairs(hourly_data) do
+        if target_set[hour_data.hour_num] then
+            if #row > 0 then
+                table.insert(row, HorizontalSpan:new { width = spacing })
+            end
+
+            local t     = use_celsius and hour_data.temp_c or hour_data.temp_f
+            local frac  = math.max(0, math.min(1, (t - range_min) / range))
+            local bar_h = math.max(2, math.floor(frac * bar_max_h))
+            local empty_h = bar_max_h - bar_h
+
+            local col = {}
+
+            -- Icon
+            if hour_data.icon_path then
+                table.insert(col, CenterContainer:new {
+                    dimen = { w = icon_size, h = icon_size },
+                    ImageWidget:new {
+                        file = hour_data.icon_path,
+                        width = icon_size, height = icon_size,
+                        alpha = true, original_in_nightmode = false,
+                    },
+                })
+            else
+                table.insert(col, VerticalSpan:new { width = icon_size })
+            end
+
+            -- Temperature
+            table.insert(col, CenterContainer:new {
+                dimen = { w = icon_size, h = font_size + 4 },
+                TextWidget:new {
+                    text = WeatherUtils:getHourlyTemp(hour_data, false),
+                    face = face,
+                },
+            })
+
+            -- Bar growing from bottom: empty space above, then filled bar
+            local bar_group = {}
+            if empty_h > 0 then
+                table.insert(bar_group, VerticalSpan:new { width = empty_h })
+            end
+            table.insert(bar_group, CenterContainer:new {
+                dimen = { w = icon_size, h = bar_h },
+                BarWidget:new {
+                    width = bar_w, height = bar_h,
+                    color = Blitbuffer.COLOR_DARK_GRAY,
+                },
+            })
+            table.insert(col, VerticalGroup:new {
+                align = "center",
+                unpack(bar_group),
+            })
+
+            -- Hour label
+            table.insert(col, CenterContainer:new {
+                dimen = { w = icon_size, h = font_size + 4 },
+                TextWidget:new { text = hour_data.hour, face = face },
             })
 
             table.insert(row, VerticalGroup:new {
