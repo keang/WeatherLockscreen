@@ -8,6 +8,17 @@ local logger = require("logger")
 local WeatherUtils = require("weather_utils")
 local _ = require("l10n/gettext")
 
+-- If a Tomorrow.io API key file is present, delegate to that module instead.
+do
+    local key_file = DataStorage:getDataDir() .. "/tomorrowio_key.txt"
+    local f = io.open(key_file, "r")
+    if f then
+        f:close()
+        logger.dbg("WeatherLockscreen: tomorrowio_key.txt found, using Tomorrow.io backend")
+        return require("tomorrowio_api")
+    end
+end
+
 local WeatherAPI = {}
 
 
