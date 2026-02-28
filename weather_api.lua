@@ -104,37 +104,37 @@ function WeatherAPI:fetchWeatherData(weather_lockscreen)
 
         if success and result and result.current and not result.error then
             logger.dbg("WeatherLockscreen: Weather data received successfully")
-            /*
-                {
-                    chance_of_rain = 0,
-                    chance_of_snow = 0,
-                    cloud = 48,
-                    condition = {
-                    code = 1003,
-                    icon = "//cdn.weatherapi.com/weather/64x64/night/116.png",
-                    text = "Partly Cloudy "
-                    } --[[table: 0x415e9930]],
-                    feelslike_c = 24.600000000000001,
-                    feelslike_f = 76.400000000000006,
-                    gust_kph = 5.2999999999999998,
-                    gust_mph = 3.2999999999999998,
-                    humidity = 72,
-                    is_day = 0,
-                    precip_in = 0,
-                    precip_mm = 0,
-                    snow_cm = 0,
-                    temp_c = 22.199999999999999,
-                    temp_f = 72,
-                    time = "2026-03-01 05:00",
-                    time_epoch = 1772301600,
-                    will_it_rain = 0,
-                    will_it_snow = 0,
-                    wind_degree = 63,
-                    wind_dir = "ENE",
-                    wind_kph = 2.8999999999999999,
-                    wind_mph = 1.8
-                } --[[table: 0x415e9790]],
-            */
+            -- [[
+            --    {
+            --        chance_of_rain = 0,
+            --        chance_of_snow = 0,
+            --        cloud = 48,
+            --        condition = {
+            --        code = 1003,
+            --        icon = "//cdn.weatherapi.com/weather/64x64/night/116.png",
+            --        text = "Partly Cloudy "
+            --        } --[[table: 0x415e9930]],
+            --        feelslike_c = 24.600000000000001,
+            --        feelslike_f = 76.400000000000006,
+            --        gust_kph = 5.2999999999999998,
+            --        gust_mph = 3.2999999999999998,
+            --        humidity = 72,
+            --        is_day = 0,
+            --        precip_in = 0,
+            --        precip_mm = 0,
+            --        snow_cm = 0,
+            --        temp_c = 22.199999999999999,
+            --        temp_f = 72,
+            --        time = "2026-03-01 05:00",
+            --        time_epoch = 1772301600,
+            --        will_it_rain = 0,
+            --        will_it_snow = 0,
+            --        wind_degree = 63,
+            --        wind_dir = "ENE",
+            --        wind_kph = 2.8999999999999999,
+            --        wind_mph = 1.8
+            --    },
+            --]]
             logger.dbg("WeatherLockscreen: API response: ", result)
             local weather_data = self:processWeatherData(result)
             WeatherUtils:saveWeatherCache(weather_data)
