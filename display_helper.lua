@@ -263,42 +263,45 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
 
             local col = {}
 
-            -- Icon via Weather Icons font. No CenterContainer so the glyph isn't clipped.
-            -- VerticalGroup align="center" handles horizontal centering.
-            table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
+            -- Bar section: tiny max-indicator border at top, temperature floating
+            -- just above the bar, then the bar itself.
+            local border_h      = math.max(1, math.floor(font_size * 0.15))
+            local temp_label_h  = font_size + 4
+            local space_above   = math.max(0, empty_h - temp_label_h - border_h)
 
-            -- Temperature
-            table.insert(col, CenterContainer:new {
-                dimen = { w = icon_size, h = font_size + 4 },
+            local bar_section = {}
+            -- Tiny top border indicating the 100 % (max) position
+            table.insert(bar_section, CenterContainer:new {
+                dimen = { w = icon_size, h = border_h },
+                BarWidget:new { width = bar_w, height = border_h, color = Blitbuffer.COLOR_BLACK },
+            })
+            -- Empty space so the temperature label lands right above the bar
+            if space_above > 0 then
+                table.insert(bar_section, VerticalSpan:new { width = space_above })
+            end
+            -- Temperature label sitting on top of the bar
+            table.insert(bar_section, CenterContainer:new {
+                dimen = { w = icon_size, h = temp_label_h },
                 TextWidget:new {
                     text = WeatherUtils:getHourlyTemp(hour_data, false),
                     face = face,
                 },
             })
-
-            -- Bar growing from bottom: empty space above, then filled bar
-            local bar_group = {}
-            if empty_h > 0 then
-                table.insert(bar_group, VerticalSpan:new { width = empty_h })
-            end
-            table.insert(bar_group, CenterContainer:new {
+            -- The bar itself
+            table.insert(bar_section, CenterContainer:new {
                 dimen = { w = icon_size, h = bar_h },
                 BarWidget:new {
                     width = bar_w, height = bar_h,
                     color = out_of_range and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
                 },
             })
-            table.insert(col, VerticalGroup:new {
-                align = "center",
-                unpack(bar_group),
-            })
+            table.insert(col, VerticalGroup:new { align = "center", unpack(bar_section) })
 
-            table.insert(col, VerticalSpan:new { width = math.floor(font_size / 2) })
-            -- Hour label
-            table.insert(col, CenterContainer:new {
-                dimen = { w = icon_size, h = font_size + 4 },
-                TextWidget:new { text = hour_data.hour, face = face },
-            })
+            -- Weather icon (no CenterContainer so glyph is never clipped)
+            table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
+
+            -- Hour label (plain TextWidget — no fixed-height container to avoid squashing)
+            table.insert(col, TextWidget:new { text = hour_data.hour, face = face })
 
             table.insert(row, VerticalGroup:new {
                 align = "center",
