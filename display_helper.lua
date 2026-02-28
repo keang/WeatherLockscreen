@@ -336,7 +336,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                         table.insert(precip_subcol, VerticalSpan:new { width = label_space })
                     end
                     table.insert(precip_subcol, HorizontalGroup:new {
-                        HorizontalSpan:new { width = bar_w },
+                        HorizontalSpan:new { width = bar_w * 2 },
                         LeftContainer:new {
                             dimen = { w = bar_w, h = precip_label_h },
                             VerticalGroup:new {
