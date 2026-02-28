@@ -300,8 +300,14 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
             -- Weather icon (no CenterContainer so glyph is never clipped)
             table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
 
-            -- Hour label (plain TextWidget — no fixed-height container to avoid squashing)
-            table.insert(col, TextWidget:new { text = hour_data.hour, face = face })
+            -- Hour label: fixed width (= icon_size) so all columns are the same width
+            -- regardless of whether the label is "6:00" or "21:00".
+            -- Height is measured from the widget itself so nothing is clipped vertically.
+            local hour_tw = TextWidget:new { text = hour_data.hour, face = face }
+            table.insert(col, CenterContainer:new {
+                dimen = { w = icon_size, h = hour_tw:getSize().h },
+                hour_tw,
+            })
 
             table.insert(row, VerticalGroup:new {
                 align = "center",
