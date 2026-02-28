@@ -159,11 +159,11 @@ end
 --- @param text_color table|nil  Blitbuffer colour; defaults to COLOR_BLACK.
 local function buildIconWidget(icon_code, is_day, icon_size, text_color)
     local font_name = "weathericons-regular-webfont"
-    local face = Font:getFace(font_name, icon_size)
-    if face and icon_code then
+    local iconface = Font:getFace(font_name, icon_size)
+    if iconface and icon_code then
         return TextWidget:new {
             text    = WeatherIconMap.getChar(icon_code, is_day ~= false),
-            face    = face,
+            face    = iconface,
             fgcolor = text_color or Blitbuffer.COLOR_BLACK,
         }
     end
@@ -246,7 +246,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
     end
     if not any_match then return nil end
     local bar_w     = math.max(4, math.floor(icon_size * 0.45))
-    local face      = Font:getFace("cfont", font_size)
+    local face      = Font:getFace("cfont", math.floor(font_size * 0.5))
 
     local row = {}
     for _, hour_data in ipairs(hourly_data) do
@@ -270,11 +270,6 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
             local space_above   = math.max(0, empty_h - temp_label_h - border_h)
 
             local bar_section = {}
-            -- Tiny top border indicating the 100 % (max) position
-            table.insert(bar_section, CenterContainer:new {
-                dimen = { w = icon_size, h = border_h },
-                BarWidget:new { width = bar_w, height = border_h, color = Blitbuffer.COLOR_BLACK },
-            })
             -- Empty space so the temperature label lands right above the bar
             if space_above > 0 then
                 table.insert(bar_section, VerticalSpan:new { width = space_above })
@@ -287,6 +282,8 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                     face = face,
                 },
             })
+            -- Gap after temperature label so it doesn't overlap with the bar when space is tight
+            table.insert(bar_section, VerticalSpan:new { width = math.floor(font_size * 0.25) })
             -- The bar itself
             table.insert(bar_section, CenterContainer:new {
                 dimen = { w = icon_size, h = bar_h },
@@ -305,7 +302,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
             -- Height is measured from the widget itself so nothing is clipped vertically.
             local hour_tw = TextWidget:new { text = hour_data.hour, face = face }
             table.insert(col, CenterContainer:new {
-                dimen = { w = icon_size, h = hour_tw:getSize().h },
+                dimen = { w = icon_size*4, h = hour_tw:getSize().h },
                 hour_tw,
             })
 
