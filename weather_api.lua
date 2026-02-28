@@ -104,7 +104,7 @@ function WeatherAPI:fetchWeatherData(weather_lockscreen)
 
         if success and result and result.current and not result.error then
             logger.dbg("WeatherLockscreen: Weather data received successfully")
-            logger.dbg("WeatherLockscreen: API response: ", result)
+            logger.info("WeatherLockscreen: API response: ", result)
             local weather_data = self:processWeatherData(result)
             WeatherUtils:saveWeatherCache(weather_data)
             weather_data.is_cached = false
