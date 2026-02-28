@@ -269,6 +269,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
         or  math.max(4, math.floor(icon_size * 0.45))
     local bar_gap      = show_precip and math.max(2, math.floor(icon_size * 0.08)) or 0
     local face         = Font:getFace("cfont", math.floor(font_size * 0.5))
+    local small_face   = Font:getFace("cfont", math.floor(font_size * 0.25))
 
     local row = {}
     for _, hour_data in ipairs(hourly_data) do
@@ -296,7 +297,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
             if t_space > 0 then
                 table.insert(temp_subcol, VerticalSpan:new { width = t_space })
             end
-            table.insert(temp_subcol, CenterContainer:new {
+            table.insert(temp_subcol, RightContainer:new {
                 dimen = { w = bar_w, h = temp_label_h },
                 TextWidget:new { text = WeatherUtils:getHourlyTemp(hour_data, false), face = face },
             })
@@ -328,18 +329,18 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                     local mm_str          = (precip_mm == math.floor(precip_mm))
                         and (math.floor(precip_mm) .. "mm")
                         or  (string.format("%.1f", precip_mm) .. "mm")
-                    local line_h          = math.floor(font_size * 0.5) + 4
+                    local line_h          = math.floor(font_size * 0.25) + 2
                     local precip_label_h  = line_h * 2
                     local label_space     = math.max(0, p_space - precip_label_h - gap_h)
                     if label_space > 0 then
                         table.insert(precip_subcol, VerticalSpan:new { width = label_space })
                     end
-                    table.insert(precip_subcol, CenterContainer:new {
+                    table.insert(precip_subcol, LeftContainer:new {
                         dimen = { w = bar_w, h = precip_label_h },
                         VerticalGroup:new {
-                            align = "center",
-                            TextWidget:new { text = chance_str, face = face },
-                            TextWidget:new { text = mm_str,     face = face },
+                            align = "left",
+                            TextWidget:new { text = chance_str, face = small_face },
+                            TextWidget:new { text = mm_str,     face = small_face },
                         },
                     })
                     table.insert(precip_subcol, VerticalSpan:new { width = gap_h })
