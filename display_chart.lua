@@ -49,6 +49,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
     local base_label_font_size    = 30
     local base_hour_font_size     = 24
     local base_bar_height         = 240
+    local base_precip_bar_height  = 80
     local base_vertical_spacing   = 60
     local base_horizontal_spacing = 20
 
@@ -76,6 +77,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
         local label_font_size    = math.floor(base_label_font_size    * scale)
         local hour_font_size     = math.floor(base_hour_font_size     * scale)
         local bar_height         = math.floor(base_bar_height         * scale)
+        local precip_bar_height  = math.floor(base_precip_bar_height  * scale)
         local vertical_spacing   = math.floor(base_vertical_spacing   * scale)
         local horizontal_spacing = math.floor(base_horizontal_spacing * scale)
         logger.dbg("display_chart: icon_size=", hourly_icon_size, "bar_height=", bar_height, "h_spacing=", horizontal_spacing)
@@ -97,7 +99,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
             logger.dbg("display_chart: calling buildHourlyChartRow for label=", label)
             local row = DisplayHelper:buildHourlyChartRow(
                 hourly_data, FORECAST_HOURS,
-                hourly_icon_size, hour_font_size, horizontal_spacing, bar_height)
+                hourly_icon_size, hour_font_size, horizontal_spacing, bar_height, precip_bar_height)
             logger.dbg("display_chart: buildHourlyChartRow returned: ", row)
             if row then
                 table.insert(widgets, row)

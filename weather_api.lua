@@ -186,6 +186,7 @@ function WeatherAPI:processWeatherData(result)
                         temp_f = math.floor(hour_data.temp_f + 0.5),
                         condition = hour_data.condition.text,
                         precip_mm = hour_data.precip_mm or 0,
+                        precip_chance = math.max(hour_data.chance_of_rain or 0, hour_data.chance_of_snow or 0),
                     })
                 end
             end
@@ -209,6 +210,7 @@ function WeatherAPI:processWeatherData(result)
                         temp_f = math.floor(hour_data.temp_f + 0.5),
                         condition = hour_data.condition.text,
                         precip_mm = hour_data.precip_mm or 0,
+                        precip_chance = math.max(hour_data.chance_of_rain or 0, hour_data.chance_of_snow or 0),
                     })
                 end
             end

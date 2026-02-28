@@ -36,6 +36,20 @@ function BarWidget:paintTo(bb, x, y)
     bb:paintRect(x, y, self.width, self.height, self.color)
 end
 
+-- Precipitation bar: same geometry as BarWidget but drawn as horizontal stripes (hatched fill).
+-- stripe_h pixels painted, stripe_h pixels gap, repeating top-to-bottom.
+local PrecipBarWidget = Widget:extend { stripe_h = 2 }
+function PrecipBarWidget:getSize() return { w = self.width, h = self.height } end
+function PrecipBarWidget:paintTo(bb, x, y)
+    local s = self.stripe_h
+    local cy = y
+    while cy < y + self.height do
+        local h = math.min(s, y + self.height - cy)
+        bb:paintRect(x, cy, self.width, h, self.color)
+        cy = cy + s * 2
+    end
+end
+
 local DisplayHelper = {}
 
 function DisplayHelper:createHeaderWidgets(header_font_size, header_margin, weather_data, text_color, is_cached)
@@ -214,16 +228,19 @@ function DisplayHelper:buildHourlyRow(hourly_data, target_hours, icon_size, font
 end
 
 --- Build a horizontal row of hourly forecast columns with a temperature bar chart.
---- Each column shows: icon (top), temperature, proportional bar, hour label (bottom).
---- Bar height is proportional to temperature within (min_temp - 5) to (max_temp + 5).
+--- Each column shows: icon (top), temperature bar, hour label (bottom).
+--- When precip_bar_max_h > 0 each column also shows a precipitation bar (hatched, beside the temperature bar).
+--- Temperature bar height is proportional to temperature on a fixed 0–45 °C / 32–113 °F scale.
+--- Precipitation bar height is proportional to precip_mm (scale 0–4 mm) and colour encodes chance.
 --- @param hourly_data table  Array of hour entries.
 --- @param target_hours table  Array of hour numbers to include (e.g. {6, 12, 18}).
 --- @param icon_size number  Pixel size for the weather icons.
 --- @param font_size number  Font size for hour and temperature labels.
 --- @param spacing number  Horizontal spacing between columns.
---- @param bar_max_h number  Maximum bar height in pixels (tallest bar = this height).
+--- @param bar_max_h number  Maximum bar height in pixels (tallest temperature bar = this height).
+--- @param precip_bar_max_h number|nil  Max height for the precipitation bar (0 or nil = no precip bar).
 --- @return widget|nil  HorizontalGroup widget, or nil if no hours matched.
-function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size, font_size, spacing, bar_max_h)
+function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size, font_size, spacing, bar_max_h, precip_bar_max_h)
     if not hourly_data or #hourly_data == 0 then return nil end
 
     local use_celsius = WeatherUtils:getTempScale() == "C"
@@ -245,8 +262,13 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
         if target_set[h.hour_num] then any_match = true; break end
     end
     if not any_match then return nil end
-    local bar_w     = math.max(4, math.floor(icon_size * 0.45))
-    local face      = Font:getFace("cfont", math.floor(font_size * 0.5))
+    local show_precip  = precip_bar_max_h and precip_bar_max_h > 0
+    -- Each sub-bar is roughly half icon_size when two bars are shown, else the original 45%.
+    local bar_w        = show_precip
+        and math.max(3, math.floor(icon_size * 0.32))
+        or  math.max(4, math.floor(icon_size * 0.45))
+    local bar_gap      = show_precip and math.max(2, math.floor(icon_size * 0.08)) or 0
+    local face         = Font:getFace("cfont", math.floor(font_size * 0.5))
 
     local row = {}
     for _, hour_data in ipairs(hourly_data) do
@@ -255,44 +277,89 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                 table.insert(row, HorizontalSpan:new { width = spacing })
             end
 
-            local t           = use_celsius and hour_data.temp_c or hour_data.temp_f
+            local t            = use_celsius and hour_data.temp_c or hour_data.temp_f
             local out_of_range = t < range_min or t > range_max
-            local frac        = math.max(0, math.min(1, (t - range_min) / range))
-            local bar_h       = math.max(2, math.floor(frac * bar_max_h))
-            local empty_h     = bar_max_h - bar_h
+            local frac         = math.max(0, math.min(1, (t - range_min) / range))
+            local bar_h        = math.max(2, math.floor(frac * bar_max_h))
+            local empty_h      = bar_max_h - bar_h
 
             local col = {}
 
-            -- Bar section: tiny max-indicator border at top, temperature floating
-            -- just above the bar, then the bar itself.
-            local border_h      = math.max(1, math.floor(font_size * 0.15))
-            local temp_label_h  = font_size + 4
-            local space_above   = math.max(0, empty_h - temp_label_h - border_h)
+            -- ── Bar section ────────────────────────────────────────────────
+            -- Temperature sub-column: label floats just above the bar, both
+            -- bottom-anchored within a fixed bar_max_h tall column.
+            local temp_label_h = font_size + 4
+            local gap_h        = math.floor(font_size * 0.25)
+            local t_space      = math.max(0, empty_h - temp_label_h - gap_h)
 
-            local bar_section = {}
-            -- Empty space so the temperature label lands right above the bar
-            if space_above > 0 then
-                table.insert(bar_section, VerticalSpan:new { width = space_above })
+            local temp_subcol = {}
+            if t_space > 0 then
+                table.insert(temp_subcol, VerticalSpan:new { width = t_space })
             end
-            -- Temperature label sitting on top of the bar
-            table.insert(bar_section, CenterContainer:new {
-                dimen = { w = icon_size, h = temp_label_h },
-                TextWidget:new {
-                    text = WeatherUtils:getHourlyTemp(hour_data, false),
-                    face = face,
-                },
+            table.insert(temp_subcol, CenterContainer:new {
+                dimen = { w = bar_w, h = temp_label_h },
+                TextWidget:new { text = WeatherUtils:getHourlyTemp(hour_data, false), face = face },
             })
-            -- Gap after temperature label so it doesn't overlap with the bar when space is tight
-            table.insert(bar_section, VerticalSpan:new { width = math.floor(font_size * 0.25) })
-            -- The bar itself
-            table.insert(bar_section, CenterContainer:new {
-                dimen = { w = icon_size, h = bar_h },
-                BarWidget:new {
-                    width = bar_w, height = bar_h,
-                    color = out_of_range and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
-                },
+            table.insert(temp_subcol, VerticalSpan:new { width = gap_h })
+            table.insert(temp_subcol, PrecipBarWidget:new {
+                width = bar_w, height = bar_h,
+                color = out_of_range and Blitbuffer.COLOR_BLACK or Blitbuffer.COLOR_DARK_GRAY,
             })
-            table.insert(col, VerticalGroup:new { align = "center", unpack(bar_section) })
+
+            -- Precipitation sub-column (only when requested).
+            local bar_pair_widgets = { VerticalGroup:new { align = "center", unpack(temp_subcol) } }
+
+            if show_precip then
+                -- Map precip_mm (0–4 mm scale) to bar height.
+                local precip_mm     = hour_data.precip_mm or 0
+                local precip_chance = hour_data.precip_chance or 0
+                local pfrac         = math.max(0, math.min(1, precip_mm / 4))
+                local precip_bar_h  = math.floor(pfrac * precip_bar_max_h)
+                local p_space       = precip_bar_max_h - precip_bar_h
+
+                -- Darkness encodes chance: 0 % → light gray, 100 % → black.
+                local gray_val  = math.floor((1 - precip_chance / 100) * 200)
+                local pcolor    = Blitbuffer.Color8(gray_val)
+
+                local precip_subcol = {}
+                if precip_bar_h > 0 then
+                    -- Label: "30%" / "1.2mm" floating just above the bar (mirrors temp label logic).
+                    local chance_str      = math.floor(precip_chance) .. "%"
+                    local mm_str          = (precip_mm == math.floor(precip_mm))
+                        and (math.floor(precip_mm) .. "mm")
+                        or  (string.format("%.1f", precip_mm) .. "mm")
+                    local line_h          = math.floor(font_size * 0.5) + 4
+                    local precip_label_h  = line_h * 2
+                    local label_space     = math.max(0, p_space - precip_label_h - gap_h)
+                    if label_space > 0 then
+                        table.insert(precip_subcol, VerticalSpan:new { width = label_space })
+                    end
+                    table.insert(precip_subcol, CenterContainer:new {
+                        dimen = { w = bar_w, h = precip_label_h },
+                        VerticalGroup:new {
+                            align = "center",
+                            TextWidget:new { text = chance_str, face = face },
+                            TextWidget:new { text = mm_str,     face = face },
+                        },
+                    })
+                    table.insert(precip_subcol, VerticalSpan:new { width = gap_h })
+                    table.insert(precip_subcol, BarWidget:new {
+                        width = bar_w, height = precip_bar_h,
+                        color = pcolor,
+                    })
+                else
+                    -- No precip: fill with space so column height is consistent.
+                    table.insert(precip_subcol, VerticalSpan:new { width = p_space > 0 and p_space or 1 })
+                end
+
+                table.insert(bar_pair_widgets, HorizontalSpan:new { width = bar_gap })
+                table.insert(bar_pair_widgets, VerticalGroup:new { align = "center", unpack(precip_subcol) })
+            end
+
+            table.insert(col, CenterContainer:new {
+                dimen = { w = icon_size, h = bar_max_h },
+                HorizontalGroup:new { align = "bottom", unpack(bar_pair_widgets) },
+            })
 
             -- Weather icon (no CenterContainer so glyph is never clipped)
             table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
