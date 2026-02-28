@@ -269,7 +269,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
         or  math.max(4, math.floor(icon_size * 0.45))
     local bar_gap      = show_precip and math.max(2, math.floor(icon_size * 0.08)) or 0
     local face         = Font:getFace("cfont", math.floor(font_size * 0.5))
-    local small_face   = Font:getFace("cfont", math.floor(font_size * 0.25))
+    local small_face   = Font:getFace("cfont", math.floor(font_size * 0.4))
 
     local row = {}
     for _, hour_data in ipairs(hourly_data) do
@@ -290,7 +290,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
             -- Temperature sub-column: label floats just above the bar, both
             -- bottom-anchored within a fixed bar_max_h tall column.
             local temp_label_h = font_size + 4
-            local gap_h        = math.floor(font_size * 0.25)
+            local gap_h        = math.min(math.floor(font_size * 0.25), 1)
             local t_space      = math.max(0, empty_h - temp_label_h - gap_h)
 
             local temp_subcol = {}
@@ -329,7 +329,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                     local mm_str          = (precip_mm == math.floor(precip_mm))
                         and (math.floor(precip_mm) .. "mm")
                         or  (string.format("%.1f", precip_mm) .. "mm")
-                    local line_h          = math.floor(font_size * 0.25) + 2
+                    local line_h          = math.floor(font_size * 0.4)
                     local precip_label_h  = line_h * 2
                     local label_space     = math.max(0, p_space - precip_label_h - gap_h)
                     if label_space > 0 then
