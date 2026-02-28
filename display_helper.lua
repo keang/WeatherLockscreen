@@ -263,11 +263,9 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
 
             local col = {}
 
-            -- Icon via Weather Icons font (no image I/O, no blitbuffer lifetime concerns)
-            table.insert(col, CenterContainer:new {
-                dimen = { w = icon_size, h = icon_size },
-                buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size),
-            })
+            -- Icon via Weather Icons font. No CenterContainer so the glyph isn't clipped.
+            -- VerticalGroup align="center" handles horizontal centering.
+            table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
 
             -- Temperature
             table.insert(col, CenterContainer:new {
