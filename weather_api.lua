@@ -14,8 +14,10 @@ do
     local f = io.open(key_file, "r")
     if f then
         f:close()
-        logger.dbg("WeatherLockscreen: tomorrowio_key.txt found, using Tomorrow.io backend")
+        logger.info("WeatherLockscreen: tomorrowio_key.txt found, using Tomorrow.io backend")
         return require("tomorrowio_api")
+    else
+        logger.info("WeatherLockscreen: tomorrowio_key.txt not found, using WeatherAPI.com backend")
     end
 end
 
