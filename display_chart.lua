@@ -45,7 +45,7 @@ function ChartDisplay:create(weather_lockscreen, weather_data)
     local screen_height = Screen:getHeight()
     logger.dbg("display_chart: screen size: ", screen_width, screen_height)
 
-    local base_hourly_icon_size   = 120
+    local base_hourly_icon_size   = 30
     local base_label_font_size    = 30
     local base_hour_font_size     = 24
     local base_bar_height         = 240
