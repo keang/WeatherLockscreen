@@ -365,6 +365,9 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
                 HorizontalGroup:new { align = "bottom", unpack(bar_pair_widgets) },
             })
 
+            -- Gap between bars and weather icon
+            table.insert(col, VerticalSpan:new { width = math.max(2, math.floor(icon_size * 0.15)) })
+
             -- Weather icon (no CenterContainer so glyph is never clipped)
             table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
 
