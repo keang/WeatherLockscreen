@@ -410,7 +410,7 @@ function WeatherLockscreen:createWeatherWidget()
     logger.dbg("WeatherLockscreen: Creating widget")
     local weather_data = WeatherAPI:fetchWeatherData(self)
 
-    if not weather_data or not weather_data.current or not weather_data.current.icon_path then
+    if not weather_data or not weather_data.current or (not weather_data.current.icon_path and not weather_data.current.icon_code) then
         logger.warn("WeatherLockscreen: No weather data available, using fallback")
         return nil, true -- Signal to use fallback screensaver
     end

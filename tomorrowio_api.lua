@@ -92,6 +92,46 @@ local function isoDate(iso)
     return iso and iso:match("^(%d+%-%d+%-%d+)") or ""
 end
 
+-- Extract YYYY-MM-DD in device-local time from a UTC ISO-8601 timestamp.
+-- Uses the cached UTC offset from localHour; falls back to AEDT (UTC+11) if
+-- the device clock cannot be queried.
+local function localDate(iso)
+    if not iso then return "" end
+    -- Ensure _utc_offset_h is populated (mirrors localHour init logic).
+    local offset
+    if _utc_offset_h ~= nil then
+        offset = _utc_offset_h
+    else
+        local t = os.time()
+        if t then
+            local lu = os.date("!*t", t)
+            local ll = os.date("*t",  t)
+            offset = ll.hour - lu.hour
+            if ll.day ~= lu.day then
+                offset = offset + (ll.day > lu.day and 24 or -24)
+            end
+            _utc_offset_h = offset
+        else
+            offset = 11  -- AEDT (UTC+11) fallback
+        end
+    end
+
+    local y, mo, d, h = iso:match("^(%d+)-(%d+)-(%d+)T(%d+):")
+    if not y then return isoDate(iso) end
+    y, mo, d, h = tonumber(y), tonumber(mo), tonumber(d), tonumber(h)
+
+    local lh = h + offset
+    if lh >= 24 then
+        local base = os.time({ year = y, month = mo, day = d, hour = 12, min = 0, sec = 0 })
+        return os.date("%Y-%m-%d", base + 86400)
+    elseif lh < 0 then
+        local base = os.time({ year = y, month = mo, day = d, hour = 12, min = 0, sec = 0 })
+        return os.date("%Y-%m-%d", base - 86400)
+    else
+        return string.format("%04d-%02d-%02d", y, mo, d)
+    end
+end
+
 -- Approximate local hour from a UTC ISO timestamp using the device's UTC offset.
 local _utc_offset_h  -- cached
 local function localHour(iso)
@@ -205,7 +245,9 @@ end
 
 function TomorrowioAPI:fetchWeatherData(weather_lockscreen)
     local refresh_required = weather_lockscreen.refresh or false
-    local location = G_reader_settings:readSetting("weather_location") or weather_lockscreen.default_location
+    -- local location = G_reader_settings:readSetting("weather_location") or weather_lockscreen.default_location
+    -- TODO: implement location selection UI and use real location instead of hardcoded one. For now, use Melbourne, Australia as a test location with variable weather.
+    local location = "-37.882346560026356,145.06533160923226"
 
     if not refresh_required then
         local cached = WeatherUtils:loadWeatherCache(WeatherUtils:getMinDelayBetweenUpdates())
@@ -226,12 +268,12 @@ function TomorrowioAPI:fetchWeatherData(weather_lockscreen)
 
     local json = require("json")
     local url = string.format(
-        "https://api.tomorrow.io/v4/weather/forecast?location=%s&apikey=%s&timesteps=1h,1d&units=metric",
+        "https://api.tomorrow.io/v4/weather/forecast?location=%s&apikey=%s&timesteps=1h&units=metric",
         urlEncode(location),
         api_key
     )
 
-    logger.dbg("WeatherLockscreen (tomorrow.io): Fetching forecast for", location)
+    logger.info("WeatherLockscreen (tomorrow.io): Fetching forecast for", location)
 
     local sink_table = {}
     local code, err = http_request(url, sink_table)
@@ -249,6 +291,7 @@ function TomorrowioAPI:fetchWeatherData(weather_lockscreen)
             WeatherUtils:saveWeatherCache(weather_data)
             weather_data.is_cached = false
             weather_lockscreen.refresh = false
+            logger.info("WeatherLockscreen (tomorrow.io): weather data: ", weather_data)
             return weather_data
         else
             logger.warn("WeatherLockscreen (tomorrow.io): Failed to parse response")
@@ -310,15 +353,15 @@ function TomorrowioAPI:processWeatherData(result)
     end
 
     -- ---- Hourly data split into today / tomorrow ----------------------------
-    -- "Today" = entries sharing the same UTC date as the first hourly entry.
-    -- "Tomorrow" = entries on the next date. Capped at 24 hours each.
-    local today_date    = isoDate(hourly[1] and hourly[1].time)
+    -- "Today" = entries sharing the same local-calendar date as the first entry.
+    -- "Tomorrow" = entries on the next local date. Capped at 24 hours each.
+    local today_date    = localDate(hourly[1] and hourly[1].time)
     local hourly_today  = {}
     local hourly_tomorrow = {}
     local tomorrow_date = nil   -- determined dynamically
 
     for _, entry in ipairs(hourly) do
-        local edate = isoDate(entry.time)
+        local edate = localDate(entry.time)
         local lhour = localHour(entry.time)
         local ev    = entry.values or {}
         local h_code = ev.weatherCode
@@ -334,7 +377,7 @@ function TomorrowioAPI:processWeatherData(result)
             temp_c        = h_tc,
             temp_f        = math.floor(h_tc * 9/5 + 32 + 0.5),
             condition     = WCODE_TEXT[h_code] or "Unknown",
-            precip_mm     = ev.precipitationIntensity or 0,
+            precip_mm     = ev.rainAccumulation or 0,
             precip_chance = math.floor((ev.precipitationProbability or 0) + 0.5),
         }
 
