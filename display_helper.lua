@@ -268,7 +268,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
         and math.max(3, math.floor(icon_size * 0.32))
         or  math.max(4, math.floor(icon_size * 0.45))
     local bar_gap      = show_precip and math.max(2, math.floor(icon_size * 0.08)) or 0
-    local face         = Font:getFace("cfont", math.floor(font_size * 0.5))
+    local face         = Font:getFace("cfont", math.floor(font_size * 0.8))
     local small_face   = Font:getFace("cfont", math.floor(font_size * 0.4))
 
     local row = {}
@@ -366,7 +366,7 @@ function DisplayHelper:buildHourlyChartRow(hourly_data, target_hours, icon_size,
             })
 
             -- Gap between bars and weather icon
-            table.insert(col, VerticalSpan:new { width = math.max(2, math.floor(icon_size * 0.15)) })
+            table.insert(col, VerticalSpan:new { width = math.max(4, math.floor(icon_size * 0.30)) })
 
             -- Weather icon (no CenterContainer so glyph is never clipped)
             table.insert(col, buildIconWidget(hour_data.icon_code, hour_data.is_day, icon_size))
